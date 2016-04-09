@@ -10,6 +10,7 @@
 using namespace ::dsn::apps;
 
 static const char* CONNECT = "connect";
+static const char* CLUSTER_INFO_OP = "cluster_info";
 static const char* LIST_APP_OP = "app";
 static const char* LIST_APPS_OP = "ls";
 static const char* LIST_NODES_OP = "nodes";
@@ -40,6 +41,7 @@ void printHelpInfo()
 {
     std::cout << "Usage:" << std::endl;
     std::cout << "\t" << "connect:         connect [meta_servers]" << std::endl;
+    std::cout << "\t" << "cluster_info:    cluster_info" << std::endl;
     std::cout << "\t" << "create:          create <app_name> <app_type> [-pc partition_count] [-rc replication_count]" << std::endl;
     std::cout << "\t" << "drop:            drop <app_name>" << std::endl;
     std::cout << "\t" << "ls:              ls [-status <all|available|creating|creating_failed|dropping|dropping_failed|dropped>] [-o <out_file>]" << std::endl;
@@ -157,6 +159,15 @@ bool connect_op(std::string ip_addr_of_cluster, std::vector< ::dsn::rpc_address>
 
     }
     return true;
+}
+
+void cluster_info_op(dsn::replication::replication_ddl_client& client_of_dsn)
+{
+    dsn::error_code err = client_of_dsn.cluster_info("");
+    if(err == dsn::ERR_OK)
+        std::cout << "get cluster info succeed" << std::endl;
+    else
+        std::cout << "get cluster info failed, error=" << dsn_error_to_string(err) << std::endl;
 }
 
 void create_app_op(std::string app_name, std::string app_type, int partition_count, int replica_count, dsn::replication::replication_ddl_client& client_of_dsn)

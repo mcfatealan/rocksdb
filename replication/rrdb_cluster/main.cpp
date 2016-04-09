@@ -62,6 +62,10 @@ int main()
         op_name = Argv[0];
         if ( op_name == HELP_OP )
             help_op(Argc);
+        else if ( op_name == CLUSTER_INFO_OP )
+        {
+            cluster_info_op(*client_of_dsn);
+        }
         else if ( op_name == CREATE_APP_OP )
         {
             if ( Argc >= 3 )
