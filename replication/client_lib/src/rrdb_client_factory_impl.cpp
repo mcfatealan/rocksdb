@@ -55,8 +55,9 @@ irrdb_client* rrdb_client_factory_impl::get_client(const char* app_name, const c
     auto it2 = app_to_clients.find(app_name);
     if (it2 == app_to_clients.end())
     {
-        if (cluster_meta_servers[0] == '\0') {
-            replication_app_client_base::load_meta_servers(servers, "replication.meta_servers");
+        if (cluster_meta_servers[0] == '\0')
+        {
+            replication_app_client_base::load_meta_servers(servers);
         }
         rrdb_client_impl* client = new rrdb_client_impl(app_name, servers);
         it2 = app_to_clients.insert(app_to_client_map::value_type(app_name, client)).first;

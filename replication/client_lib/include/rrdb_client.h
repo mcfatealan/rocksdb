@@ -132,7 +132,7 @@ public:
     /// \param cluster_meta_servers
     /// a cluster is identified by a list of meta servers.
     /// we identigy a cluster by address list of meta servers, format as "ip:port,ip:port,ip:port".
-    /// if "", means using meta servers specified in the section of [replication.meta_servers] of config file.
+    /// if "", means using meta servers specified in the [meta_server].server_list of config file.
     /// \return
     /// the client instance. DO NOT delete this client even after usage.
     static irrdb_client* get_client(const char* app_name, const char* cluster_meta_servers = "");

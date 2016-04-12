@@ -150,7 +150,7 @@ function run_start_onebox()
         exit -1
     fi
     run_clear_onebox
-    sed "s/@LOCAL_IP@/`hostname -i`/" ${ROOT}/replication/config-server.ini >${ROOT}/config-server.ini
+    sed "s/@LOCAL_IP@/`hostname -i`/g" ${ROOT}/replication/config-server.ini >${ROOT}/config-server.ini
     echo "starting server"
     mkdir onebox
     cd onebox
@@ -352,7 +352,7 @@ function run_bench()
         shift
     done
 
-    sed "s/@LOCAL_IP@/`hostname -i`/" ${ROOT}/replication/config-client.ini >${CONFIG}
+    sed "s/@LOCAL_IP@/`hostname -i`/g" ${ROOT}/replication/config-client.ini >${CONFIG}
 
     ./rrdb_bench --rrdb_config=${CONFIG} --benchmarks=${TYPE} --rrdb_timeout_ms=${TIMEOUT_MS} \
         --key_size=${KEY_SIZE} --value_size=${VALUE_SIZE} --threads=${THREAD} --num=${NUM} \
