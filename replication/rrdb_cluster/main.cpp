@@ -177,6 +177,8 @@ int main()
         }
         else if ( op_name == USE_OP )
             use_op(Argc, Argv, app_name);
+        else if ( op_name == HASH_OP )
+            hash_op(Argc, Argv, app_name, *client_of_dsn);
         else if ( op_name == GET_OP )
         {
             if (app_name.empty()) {

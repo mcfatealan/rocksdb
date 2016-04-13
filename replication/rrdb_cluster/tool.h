@@ -5,6 +5,7 @@
 #include <string>
 #include <rrdb_client.h>
 #include <dsn/dist/replication/replication_ddl_client.h>
+#include "rrdb_client_impl.h"
 #include <iomanip>
 
 using namespace ::dsn::apps;
@@ -20,6 +21,7 @@ static const char* STOP_MIGRATION_OP = "stop_migration";
 static const char* START_MIGRATION_OP = "start_migration";
 static const char* BALANCER_OP = "balancer";
 static const char* USE_OP = "use";
+static const char* HASH_OP = "hash";
 static const char* SET_OP = "set";
 static const char* GET_OP = "get";
 static const char* DEL_OP = "del";
@@ -247,7 +249,10 @@ void list_app_op(std::string app_name, bool detailed, std::string out_file, dsn:
     std::cout << std::endl << "[Result]" << std::endl;
 
     if(app_name.empty())
-        std::cout << "app <app_name> [-detailed] [-o <out_file>]" << std::endl;
+    {
+        std::cout << "ERROR: null app name" << std::endl;
+        return;
+    }
     dsn::error_code err = client_of_dsn.list_app(app_name, detailed, out_file);
     if(err == dsn::ERR_OK)
         std::cout << "list app " << app_name << " succeed" << std::endl;
@@ -307,11 +312,46 @@ void use_op(int Argc, std::string Argv[], std::string &app_name)
         std::cout << "USAGE: use [app_name]" << std::endl;
 }
 
+void hash_op(int Argc, std::string Argv[], std::string& app_name, dsn::replication::replication_ddl_client &client_of_dsn)
+{
+    if ( Argc != 2 )
+    {
+        std::cout << "USAGE: hash <hash_key>" << std::endl;
+        return;
+    }
+    std::string hash_key = Argv[1];
+
+    dsn::blob key;
+    dsn::apps::rrdb_generate_key(key, hash_key, "");
+    uint64_t key_hash = dsn::apps::rrdb_key_hash(key);
+
+    int width = strlen("partition_index");
+    std::cout << std::setw(width) << std::left << "key_hash" << " : " << key_hash << std::endl;
+
+    if (!app_name.empty())
+    {
+        int32_t app_id;
+        int32_t partition_count;
+        std::vector<partition_configuration> partitions;
+        dsn::error_code err = client_of_dsn.list_app(app_name, app_id, partition_count, partitions);
+        if (err != dsn::ERR_OK)
+        {
+            std::cout << "list app [" << app_name << "] failed, error=" << dsn_error_to_string(err) << std::endl;
+            return;
+        }
+        uint64_t partition_index = key_hash % (uint64_t)partition_count;
+        std::cout << std::setw(width) << std::left << "app_name" << " : " << app_name << std::endl;
+        std::cout << std::setw(width) << std::left << "app_id" << " : " << app_id << std::endl;
+        std::cout << std::setw(width) << std::left << "partition_count" << " : " << partition_count << std::endl;
+        std::cout << std::setw(width) << std::left << "partition_index" << " : " << partition_index << std::endl;
+    }
+}
+
 void get_op(int Argc, std::string Argv[], irrdb_client* client)
 {
     if ( Argc != 3 )
     {
-        std::cout << "USAGE: set <hash_key> <sort_key> <value>" << std::endl;
+        std::cout << "USAGE: get <hash_key> <sort_key>" << std::endl;
         return;
     }
 

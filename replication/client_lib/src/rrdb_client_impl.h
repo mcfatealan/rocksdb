@@ -7,6 +7,9 @@ using namespace dsn::replication;
 
 namespace dsn{ namespace apps{
 
+void rrdb_generate_key(::dsn::blob& key, const std::string& hash_key, const std::string& sort_key);
+uint64_t rrdb_key_hash(const ::dsn::blob& key);
+
 class rrdb_client_hash_key : public rrdb_client
 {
 public:
@@ -15,19 +18,15 @@ public:
             const char* replicate_app_name)
         :rrdb_client(meta_servers, replicate_app_name)
     {}
+
     virtual uint64_t get_key_hash(const ::dsn::blob& key)
     {
-        dassert(key.length() > 4, "key length must be greater than 4");
-        // hash_key_length is in big endian
-        int length = be32toh( *(int32_t*)(key.data()) );
-        dassert(key.length() >= 4 + length, "key length must be greater than 4 + hash_key length");
-        dsn::blob hash_key(key.buffer_ptr(), 4, length);
-        return dsn_crc64_compute(hash_key.data(), hash_key.length(), 0);
+        return rrdb_key_hash(key);
     }
 
     virtual uint64_t get_key_hash(const update_request& key)
     {
-        return get_key_hash(key.key);
+        return rrdb_key_hash(key.key);
     }
 };
 
@@ -66,7 +65,6 @@ public:
     static void init_error();
 
 private:
-    static void generate_key(dsn::blob& key, const std::string& hash_key, const std::string& sort_key);
     static int get_client_error(int server_error);
     static int get_rocksdb_server_error(int rocskdb_error);
 

@@ -16,6 +16,28 @@ namespace dsn{ namespace apps{
 std::unordered_map<int, std::string> rrdb_client_impl::_client_error_to_string;
 std::unordered_map<int, int> rrdb_client_impl::_server_error_to_client;
 
+void rrdb_generate_key(dsn::blob& key, const std::string& hash_key, const std::string& sort_key)
+{
+    int len = 4 + hash_key.size() + sort_key.size();
+    char* buf = new char[len];
+    // hash_key_length is in big endian
+    *(int32_t*)buf = htobe32( (int32_t)hash_key.size() );
+    hash_key.copy(buf + 4, hash_key.size(), 0);
+    sort_key.copy(buf + 4 + hash_key.size(), sort_key.size(), 0);
+    std::shared_ptr<char> buffer(buf);
+    key.assign(buffer, 0, len);
+}
+
+uint64_t rrdb_key_hash(const ::dsn::blob& key)
+{
+    dassert(key.length() > 4, "key length must be greater than 4");
+    // hash_key_length is in big endian
+    int length = be32toh( *(int32_t*)(key.data()) );
+    dassert(key.length() >= 4 + length, "key length must be greater than 4 + hash_key length");
+    dsn::blob hash_key(key.buffer_ptr(), 4, length);
+    return dsn_crc64_compute(hash_key.data(), hash_key.length(), 0);
+}
+
 rrdb_client_impl::rrdb_client_impl(const char* app_name, const std::vector< ::dsn::rpc_address>& meta_servers)
     :_app_name(app_name), _client(meta_servers, app_name)
 {
@@ -49,7 +71,7 @@ int rrdb_client_impl::set(
         return RRDB_ERR_INVALID_HASH_KEY;
 
     update_request req;
-    generate_key(req.key, hash_key, sort_key);
+    rrdb_generate_key(req.key, hash_key, sort_key);
     req.value.assign(value.c_str(), 0, value.size());
     auto pr = _client.put_sync(req, std::chrono::milliseconds(timeout_milliseconds));
     return get_client_error(pr.first == ERR_OK ? get_rocksdb_server_error(pr.second) : pr.first.get());
@@ -68,7 +90,7 @@ int rrdb_client_impl::get(
         return RRDB_ERR_INVALID_HASH_KEY;
 
     dsn::blob req;
-    generate_key(req, hash_key, sort_key);
+    rrdb_generate_key(req, hash_key, sort_key);
     auto pr = _client.get_sync(req, std::chrono::milliseconds(timeout_milliseconds));
     if(pr.first == ERR_OK)
         value.assign(pr.second.value.data(), pr.second.value.length());
@@ -86,7 +108,7 @@ int rrdb_client_impl::del(
         return RRDB_ERR_INVALID_HASH_KEY;
 
     dsn::blob req;
-    generate_key(req, hash_key, sort_key);
+    rrdb_generate_key(req, hash_key, sort_key);
     auto pr = _client.remove_sync(req, std::chrono::milliseconds(timeout_milliseconds));
     return get_client_error(pr.first == ERR_OK ? get_rocksdb_server_error(pr.second) : pr.first.get());
 }
@@ -133,17 +155,5 @@ const char* rrdb_client_impl::get_error_string(int error_code) const
 /*static*/ int rrdb_client_impl::get_rocksdb_server_error(int rocskdb_error)
 {
     return (rocskdb_error == 0) ? 0 : ROCSKDB_ERROR_START - rocskdb_error;
-}
-
-/*static*/ void rrdb_client_impl::generate_key(dsn::blob& key, const std::string& hash_key, const std::string& sort_key)
-{
-    int len = 4 + hash_key.size() + sort_key.size();
-    char* buf = new char[len];
-    // hash_key_length is in big endian
-    *(int32_t*)buf = htobe32( (int32_t)hash_key.size() );
-    hash_key.copy(buf + 4, hash_key.size(), 0);
-    sort_key.copy(buf + 4 + hash_key.size(), sort_key.size(), 0);
-    std::shared_ptr<char> buffer(buf);
-    key.assign(buffer, 0, len);
 }
 }} // namespace
