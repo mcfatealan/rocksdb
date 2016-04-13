@@ -553,7 +553,7 @@ void rrdb_service_impl::on_get(const ::dsn::blob& key, ::dsn::replication::rpc_r
     chkpt = nullptr;
     if (!status.ok())
     {
-        derror("%s: async create checkpoint failed, status = %s",
+        dwarn("%s: async create checkpoint failed, status = %s",
                 data_dir().c_str(),
                 status.ToString().c_str()
               );
