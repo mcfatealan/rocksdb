@@ -344,6 +344,18 @@ void hash_op(int Argc, std::string Argv[], std::string& app_name, dsn::replicati
         std::cout << std::setw(width) << std::left << "app_id" << " : " << app_id << std::endl;
         std::cout << std::setw(width) << std::left << "partition_count" << " : " << partition_count << std::endl;
         std::cout << std::setw(width) << std::left << "partition_index" << " : " << partition_index << std::endl;
+        if (partitions.size() > partition_index)
+        {
+            partition_configuration& pc = partitions[partition_index];
+            std::cout << std::setw(width) << std::left << "primary" << " : " << pc.primary.to_string() << std::endl;
+            std::ostringstream oss;
+            for (int i = 0; i < pc.secondaries.size(); ++i)
+            {
+                if (i != 0) oss << ",";
+                oss << pc.secondaries[i].to_string();
+            }
+            std::cout << std::setw(width) << std::left << "secondaries" << " : " << oss.str() << std::endl;
+        }
     }
 }
 
