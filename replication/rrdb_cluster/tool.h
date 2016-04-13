@@ -34,7 +34,7 @@ void printHead()
 //Print head message
 {
 
-    std::cout << "rrdb_cluster1.0 (March 18 2016)" << std::endl;
+    std::cout << "rrdb_cluster 1.0" << std::endl;
     std::cout << "Type \"help\" for more information." << std::endl;
 }
 

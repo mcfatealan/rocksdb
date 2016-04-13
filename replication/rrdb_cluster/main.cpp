@@ -8,14 +8,22 @@ using namespace ::dsn::apps;
 
 #define PARA_NUM 10
 
-int main()
+int main(int argc, const char* argv[])
 {
     printHead();
+    std::cout << std::endl;
     printHelpInfo();
+    std::cout << std::endl;
 
-    if (!rrdb_client_factory::initialize("config.ini")) {
-        fprintf(stderr, "ERROR: init pegasus failed\n");
+    std::string config_file = argc > 1 ? argv[1] : "config.ini";
+    if (!rrdb_client_factory::initialize(config_file.c_str()))
+    {
+        std::cout << "ERROR: init pegasus failed: " << config_file << std::endl;
         return -1;
+    }
+    else
+    {
+        std::cout << "The config file is: " << config_file << std::endl;
     }
 
     std::string op_name;
@@ -24,9 +32,14 @@ int main()
     std::vector<dsn::rpc_address> meta_servers;
     dsn::replication::replication_app_client_base::load_meta_servers(meta_servers);
     dsn::replication::replication_ddl_client* client_of_dsn = new dsn::replication::replication_ddl_client(meta_servers);
-    irrdb_client* client_of_rrdb = NULL;
+
 
     std::string ip_addr_of_cluster;
+    irrdb_client* client_of_rrdb = rrdb_client_factory::get_client(app_name.c_str(), ip_addr_of_cluster.c_str());
+    if (client_of_rrdb != NULL)
+    {
+        std::cout << "The connecting cluster is: " << client_of_rrdb->get_cluster_meta_servers() << std::endl;
+    }
 
     while ( true )
     {

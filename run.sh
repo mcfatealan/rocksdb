@@ -280,7 +280,7 @@ function usage_bench()
 {
     echo "Options for subcommand 'bench':"
     echo "   -h|--help            print the help info"
-    echo "   -c|--config <path>   config file path, default './replication/config-client.ini'"
+    echo "   -c|--config <path>   config file path, default './config-client.ini'"
     echo "   -t|--type            benchmark type, supporting:"
     echo "                          fillseq_rrdb, fillrandom_rrdb, filluniquerandom_rrdb,"
     echo "                          readrandom_rrdb, deleteseq_rrdb, deleterandom_rrdb"
@@ -296,6 +296,7 @@ function usage_bench()
 function run_bench()
 {
     CONFIG=${ROOT}/config-client.ini
+    CONFIG_SPECIFIED=0
     TYPE=fillseq_rrdb,readrandom_rrdb
     NUM=100000
     APP=rrdb.instance0
@@ -312,6 +313,7 @@ function run_bench()
                 ;;
             -c|--config)
                 CONFIG="$2"
+                CONFIG_SPECIFIED=1
                 shift
                 ;;
             -t|--type)
@@ -352,7 +354,9 @@ function run_bench()
         shift
     done
 
-    sed "s/@LOCAL_IP@/`hostname -i`/g" ${ROOT}/replication/config-client.ini >${CONFIG}
+    if [ ${CONFIG_SPECIFIED} -eq 0 ]; then
+        sed "s/@LOCAL_IP@/`hostname -i`/g" ${ROOT}/replication/config-client.ini >${CONFIG}
+    fi
 
     ./rrdb_bench --rrdb_config=${CONFIG} --benchmarks=${TYPE} --rrdb_timeout_ms=${TIMEOUT_MS} \
         --key_size=${KEY_SIZE} --value_size=${VALUE_SIZE} --threads=${THREAD} --num=${NUM} \
@@ -360,9 +364,47 @@ function run_bench()
         --compression_type=none --compression_ratio=1.0
 }
 
+#####################
+## shell
+#####################
+function usage_shell()
+{
+    echo "Options for subcommand 'shell':"
+    echo "   -h|--help            print the help info"
+    echo "   -c|--config <path>   config file path, default './config-client.ini'"
+}
+
 function run_shell()
 {
-    cd ${DSN_ROOT}/bin/rrdb_cluster && ./rrdb_cluster
+    CONFIG=${ROOT}/config-client.ini
+    CONFIG_SPECIFIED=0
+    while [[ $# > 0 ]]; do
+        key="$1"
+        case $key in
+            -h|--help)
+                usage_shell
+                exit 0
+                ;;
+            -c|--config)
+                CONFIG="$2"
+                CONFIG_SPECIFIED=1
+                shift
+                ;;
+            *)
+                echo "ERROR: unknown option \"$key\""
+                echo
+                usage_shell
+                exit -1
+                ;;
+        esac
+        shift
+    done
+
+    if [ ${CONFIG_SPECIFIED} -eq 0 ]; then
+        sed "s/@LOCAL_IP@/`hostname -i`/g" ${ROOT}/replication/config-client.ini >${CONFIG}
+    fi
+
+    ${DSN_ROOT}/bin/rrdb_cluster/rrdb_cluster ${CONFIG}
 }
 
 ####################################################################
