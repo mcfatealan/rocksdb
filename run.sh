@@ -149,17 +149,16 @@ function run_start_onebox()
         echo "ERROR: file ${DSN_ROOT}/bin/rrdb/rrdb not exist"
         exit -1
     fi
-    run_clear_onebox
     sed "s/@LOCAL_IP@/`hostname -i`/g" ${ROOT}/replication/config-server.ini >${ROOT}/config-server.ini
     echo "starting server"
-    mkdir onebox
+    mkdir -p onebox
     cd onebox
     for i in 1 2 3
     do
-        mkdir meta$i;
+        mkdir -p meta$i;
         cd meta$i
-        ln -s ${DSN_ROOT}/bin/rrdb/rrdb rrdb
-        ln -s ${ROOT}/config-server.ini config.ini
+        ln -s -f ${DSN_ROOT}/bin/rrdb/rrdb rrdb
+        ln -s -f ${ROOT}/config-server.ini config.ini
         echo "cd `pwd` && ./rrdb config.ini -app_list meta@$i &>result &"
         ./rrdb config.ini -app_list meta@$i &>result &
         PID=$!
@@ -168,10 +167,10 @@ function run_start_onebox()
     done
     for j in 1 2 3
     do
-        mkdir replica$j
+        mkdir -p replica$j
         cd replica$j
-        ln -s ${DSN_ROOT}/bin/rrdb/rrdb rrdb
-        ln -s ${ROOT}/config-server.ini config.ini
+        ln -s -f ${DSN_ROOT}/bin/rrdb/rrdb rrdb
+        ln -s -f ${ROOT}/config-server.ini config.ini
         echo "cd `pwd` && ./rrdb config.ini -app_list replica@$j &>result &"
         ./rrdb config.ini -app_list replica@$j &>result &
         PID=$!
