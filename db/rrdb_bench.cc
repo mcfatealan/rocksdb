@@ -2807,14 +2807,22 @@ class Benchmark {
       }
       int64_t rand_num = key_gen->Next();
       GenerateKeyFromInt(rand_num, FLAGS_num, &key);
-      int ret = client->set(key.ToString(), "", gen.Generate(value_size_).ToString(),
-                            FLAGS_rrdb_timeout_ms);
-      thread->stats.FinishedOps(nullptr, nullptr, 1);
-      bytes += value_size_ + key_size_;
-      if (ret != ::dsn::apps::RRDB_ERR_OK) {
-        fprintf(stderr, "put error: %s\n", client->get_error_string(ret));
-        exit(1);
+      int try_count = 0;
+      while (true) {
+        try_count++;
+        int ret = client->set(key.ToString(), "", gen.Generate(value_size_).ToString(),
+                              FLAGS_rrdb_timeout_ms);
+        if (ret == ::dsn::apps::RRDB_ERR_OK) {
+          bytes += value_size_ + key_size_;
+          break;
+        } else if (ret != ::dsn::apps::RRDB_ERR_TIMEOUT || try_count > 3) {
+          fprintf(stderr, "Set returned an error: %s\n", client->get_error_string(ret));
+          exit(1);
+        } else {
+          fprintf(stderr, "Set timeout, retry(%d)\n", try_count);
+        }
       }
+      thread->stats.FinishedOps(nullptr, nullptr, 1);
     }
     thread->stats.AddBytes(bytes);
   }
@@ -3004,14 +3012,23 @@ class Benchmark {
       int64_t key_rand = GetRandomKey(&thread->rand);
       GenerateKeyFromInt(key_rand, FLAGS_num, &key);
       read++;
-      std::string value;
-      int ret = client->get(key.ToString(), "", value, FLAGS_rrdb_timeout_ms);
-      if (ret == ::dsn::apps::RRDB_ERR_OK) {
-        found++;
-        bytes += key.size() + value.size();
-      } else if (ret != ::dsn::apps::RRDB_ERR_NOT_FOUND) {
-        fprintf(stderr, "Get returned an error: %s\n", client->get_error_string(ret));
-        exit(1);
+      int try_count = 0;
+      while (true) {
+        try_count++;
+        std::string value;
+        int ret = client->get(key.ToString(), "", value, FLAGS_rrdb_timeout_ms);
+        if (ret == ::dsn::apps::RRDB_ERR_OK) {
+          found++;
+          bytes += key.size() + value.size();
+          break;
+        } else if (ret == ::dsn::apps::RRDB_ERR_NOT_FOUND) {
+          break;
+        } else if (ret != ::dsn::apps::RRDB_ERR_TIMEOUT || try_count > 3) {
+          fprintf(stderr, "Get returned an error: %s\n", client->get_error_string(ret));
+          exit(1);
+        } else {
+          fprintf(stderr, "Get timeout, retry(%d)\n", try_count);
+        }
       }
       thread->stats.FinishedOps(nullptr, nullptr, 1);
     }
@@ -3227,12 +3244,20 @@ class Benchmark {
     while (!duration.Done(1)) {
       const int64_t k = seq ? i : (thread->rand.Next() % FLAGS_num);
       GenerateKeyFromInt(k, FLAGS_num, &key);
-      int ret = client->del(key.ToString(), "", FLAGS_rrdb_timeout_ms);
-      thread->stats.FinishedOps(nullptr, nullptr, 1);
-      if (ret != ::dsn::apps::RRDB_ERR_OK) {
-        fprintf(stderr, "del error: %s\n", client->get_error_string(ret));
-        exit(1);
+      int try_count = 0;
+      while (true) {
+        try_count++;
+        int ret = client->del(key.ToString(), "", FLAGS_rrdb_timeout_ms);
+        if (ret == ::dsn::apps::RRDB_ERR_OK) {
+          break;
+        } else if (ret != ::dsn::apps::RRDB_ERR_TIMEOUT || try_count > 3) {
+          fprintf(stderr, "Del returned an error: %s\n", client->get_error_string(ret));
+          exit(1);
+        } else {
+          fprintf(stderr, "Get timeout, retry(%d)\n", try_count);
+        }
       }
+      thread->stats.FinishedOps(nullptr, nullptr, 1);
       i++;
     }
   }
