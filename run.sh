@@ -125,16 +125,30 @@ function usage_start_onebox()
 {
     echo "Options for subcommand 'start_onebox':"
     echo "   -h|--help         print the help info"
+    echo "   -m|--meta_count <num>"
+    echo "                     meta server count"
+    echo "   -r|--replica_count <num>"
+    echo "                     replica server count"
 }
 
 function run_start_onebox()
 {
+    META_COUNT=3
+    REPLICA_COUNT=3
     while [[ $# > 0 ]]; do
         key="$1"
         case $key in
             -h|--help)
                 usage_start_onebox
                 exit 0
+                ;;
+            -m|--meta_count)
+                META_COUNT="$2"
+                shift
+                ;;
+            -r|--replica_count)
+                REPLICA_COUNT="$2"
+                shift
                 ;;
             *)
                 echo "ERROR: unknown option \"$key\""
@@ -149,11 +163,12 @@ function run_start_onebox()
         echo "ERROR: file ${DSN_ROOT}/bin/rrdb/rrdb not exist"
         exit -1
     fi
-    sed "s/@LOCAL_IP@/`hostname -i`/g" ${ROOT}/replication/config-server.ini >${ROOT}/config-server.ini
+    sed "s/@LOCAL_IP@/`hostname -i`/g;s/@META_COUNT@/${META_COUNT}/g;s/@REPLICA_COUNT@/${REPLICA_COUNT}/g" \
+        ${ROOT}/replication/config-server.ini >${ROOT}/config-server.ini
     echo "starting server"
     mkdir -p onebox
     cd onebox
-    for i in 1 2 3
+    for i in $(seq ${META_COUNT})
     do
         mkdir -p meta$i;
         cd meta$i
@@ -165,7 +180,7 @@ function run_start_onebox()
         ps -ef | grep rrdb | grep $PID
         cd ..
     done
-    for j in 1 2 3
+    for j in $(seq ${REPLICA_COUNT})
     do
         mkdir -p replica$j
         cd replica$j
