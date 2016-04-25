@@ -4,9 +4,32 @@
 # include "rrdb.server.h"
 
 namespace dsn { namespace apps { 
+// server app example
+class rrdb_server_app : 
+    public ::dsn::service_app
+{
+public:
+    rrdb_server_app() {}
+
+    virtual ::dsn::error_code start(int argc, char** argv) override
+    {
+        _rrdb_svc.open_service(gpid());
+        return ::dsn::ERR_OK;
+    }
+
+    virtual ::dsn::error_code stop(bool cleanup = false) override
+    {
+        _rrdb_svc.close_service(gpid());
+        return ::dsn::ERR_OK;
+    }
+
+private:
+    rrdb_service _rrdb_svc;
+};
+
 // client app example
 class rrdb_client_app : 
-    public ::dsn::service_app,
+    public ::dsn::service_app, 
     public virtual ::dsn::clientlet
 {
 public:
@@ -17,114 +40,116 @@ public:
         stop();
     }
 
-    virtual ::dsn::error_code start(int argc, char** argv)
+    virtual ::dsn::error_code start(int argc, char** argv) override
     {
-        if (argc < 2)
+        if (argc < 1)
+        {
+            printf ("Usage: <exe> server-host:server-port or service-url\n");
             return ::dsn::ERR_INVALID_PARAMETERS;
+        }
 
-        std::vector< ::dsn::rpc_address> meta_servers;
-        ::dsn::replication::replication_app_client_base::load_meta_servers(meta_servers);
-        
-        _rrdb_client.reset(new rrdb_client(meta_servers, argv[1]));
+        // argv[1]: e.g., dsn://mycluster/simple-kv.instance0
+        _server = url_host_address(argv[1]);
+            
+        _rrdb_client.reset(new rrdb_client(_server));
         _timer = ::dsn::tasking::enqueue_timer(LPC_RRDB_TEST_TIMER, this, [this]{on_test_timer();}, std::chrono::seconds(1));
         return ::dsn::ERR_OK;
     }
 
-    virtual void stop(bool cleanup = false)
+    virtual ::dsn::error_code stop(bool cleanup = false) override
     {
         _timer->cancel(true);
  
         _rrdb_client.reset();
+        return ::dsn::ERR_OK;
     }
 
     void on_test_timer()
     {
-        // test for service rrdb
+        // test for service 'rrdb'
         {
-            update_request req;
             //sync:
-            error_code err;
-            int resp;
-            std::tie(err, resp) = _rrdb_client->put_sync(req);
-            std::cout << "call RPC_RRDB_RRDB_PUT end, return " << err.to_string() << std::endl;
+            auto result = _rrdb_client->put_sync({});
+            std::cout << "call RPC_RRDB_RRDB_PUT end, return " << result.first.to_string() << std::endl;
             //async: 
-            //_rrdb_client->put(req, empty_callback);
+            //_rrdb_client->put({});
            
         }
         {
-            ::dsn::blob req;
             //sync:
-            error_code err;
-            int resp;
-            std::tie(err, resp) = _rrdb_client->remove_sync(req);
-            std::cout << "call RPC_RRDB_RRDB_REMOVE end, return " << err.to_string() << std::endl;
+            auto result = _rrdb_client->remove_sync({});
+            std::cout << "call RPC_RRDB_RRDB_REMOVE end, return " << result.first.to_string() << std::endl;
             //async: 
-            //_rrdb_client->remove(req, empty_callback);
+            //_rrdb_client->remove({});
            
         }
         {
-            update_request req;
             //sync:
-            error_code err;
-            int resp;
-            std::tie(err, resp) = _rrdb_client->merge_sync(req);
-            std::cout << "call RPC_RRDB_RRDB_MERGE end, return " << err.to_string() << std::endl;
+            auto result = _rrdb_client->merge_sync({});
+            std::cout << "call RPC_RRDB_RRDB_MERGE end, return " << result.first.to_string() << std::endl;
             //async: 
-            //_rrdb_client->merge(req, empty_callback);
+            //_rrdb_client->merge({});
            
         }
         {
-            ::dsn::blob req;
             //sync:
-            error_code err;
-            read_response resp;
-            std::tie(err, resp) = _rrdb_client->get_sync(req);
-            std::cout << "call RPC_RRDB_RRDB_GET end, return " << err.to_string() << std::endl;
+            auto result = _rrdb_client->get_sync({});
+            std::cout << "call RPC_RRDB_RRDB_GET end, return " << result.first.to_string() << std::endl;
             //async: 
-            //_rrdb_client->get(req, empty_callback);
+            //_rrdb_client->get({});
            
         }
     }
 
 private:
     ::dsn::task_ptr _timer;
-    ::dsn::rpc_address _server;
+    ::dsn::url_host_address _server;
     
     std::unique_ptr<rrdb_client> _rrdb_client;
 };
 
-class rrdb_perf_test_client_app : 
-    public ::dsn::service_app,
+class rrdb_perf_test_client_app :
+    public ::dsn::service_app, 
     public virtual ::dsn::clientlet
 {
 public:
-    rrdb_perf_test_client_app() {}
+    rrdb_perf_test_client_app()
+    {
+        _rrdb_client = nullptr;
+    }
 
     ~rrdb_perf_test_client_app()
     {
         stop();
     }
 
-    virtual ::dsn::error_code start(int argc, char** argv)
+    virtual ::dsn::error_code start(int argc, char** argv) override
     {
-        if (argc < 2)
+        if (argc < 1)
             return ::dsn::ERR_INVALID_PARAMETERS;
 
-        std::vector< ::dsn::rpc_address> meta_servers;
-        ::dsn::replication::replication_app_client_base::load_meta_servers(meta_servers);
+        // argv[1]: e.g., dsn://mycluster/simple-kv.instance0
+        _server = url_host_address(argv[1]);
 
-        _rrdb_client.reset(new rrdb_perf_test_client(meta_servers, argv[1]));
+        _rrdb_client = new rrdb_perf_test_client(_server);
         _rrdb_client->start_test();
         return ::dsn::ERR_OK;
     }
 
-    virtual void stop(bool cleanup = false)
+    virtual ::dsn::error_code stop(bool cleanup = false) override
     {
-        _rrdb_client.reset();
+        if (_rrdb_client != nullptr)
+        {
+            delete _rrdb_client;
+            _rrdb_client = nullptr;
+        }
+        
+        return ::dsn::ERR_OK;
     }
     
 private:
-    std::unique_ptr<rrdb_perf_test_client> _rrdb_client;
+    rrdb_perf_test_client *_rrdb_client;
+    ::dsn::rpc_address _server;
 };
 
 } } 
