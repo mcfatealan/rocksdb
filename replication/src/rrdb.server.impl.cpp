@@ -32,65 +32,85 @@ rrdb_service_impl::rrdb_service_impl(::dsn::replication::replica* replica) : rrd
     _is_checkpointing = false;
 
     // init db options
+
+    // rocksdb default: 4MB
     _db_opts.write_buffer_size =
         (size_t)dsn_config_get_value_uint64("replication",
                 "rocksdb_write_buffer_size",
-                134217728,
-                "rocksdb options.write_buffer_size, default 128MB"
+                16777216,
+                "rocksdb options.write_buffer_size, default 16MB"
                 );
+
+    // rocksdb default: 2
     _db_opts.max_write_buffer_number =
         (int)dsn_config_get_value_uint64("replication",
                 "rocksdb_max_write_buffer_number",
-                3,
-                "rocksdb options.max_write_buffer_number, default 3"
+                2,
+                "rocksdb options.max_write_buffer_number, default 2"
                 );
+
+    // rocksdb default: 1
     _db_opts.max_background_compactions =
         (int)dsn_config_get_value_uint64("replication",
                 "rocksdb_max_background_compactions",
-                20,
-                "rocksdb options.max_background_compactions, default 20"
+                2,
+                "rocksdb options.max_background_compactions, default 2"
                 );
+
+    // rocksdb default: 7
     _db_opts.num_levels =
         dsn_config_get_value_uint64("replication",
                 "rocksdb_num_levels",
                 6,
                 "rocksdb options.num_levels, default 6"
                 );
+
+    // rocksdb default: 2MB
     _db_opts.target_file_size_base =
         dsn_config_get_value_uint64("replication",
                 "rocksdb_target_file_size_base",
-                67108864,
-                "rocksdb options.write_buffer_size, default 64MB"
+                8388608,
+                "rocksdb options.write_buffer_size, default 8MB"
                 );
+
+    // rocksdb default: 10MB
     _db_opts.max_bytes_for_level_base =
         dsn_config_get_value_uint64("replication",
                 "rocksdb_max_bytes_for_level_base",
-                10485760,
-                "rocksdb options.max_bytes_for_level_base, default 10MB"
+                41943040,
+                "rocksdb options.max_bytes_for_level_base, default 40MB"
                 );
+
+    // rocksdb default: 10
     _db_opts.max_grandparent_overlap_factor =
         (int)dsn_config_get_value_uint64("replication",
                 "rocksdb_max_grandparent_overlap_factor",
                 10,
                 "rocksdb options.max_grandparent_overlap_factor, default 10"
                 );
+
+    // rocksdb default: 4
     _db_opts.level0_file_num_compaction_trigger =
         (int)dsn_config_get_value_uint64("replication",
                 "rocksdb_level0_file_num_compaction_trigger",
                 4,
                 "rocksdb options.level0_file_num_compaction_trigger, 4"
                 );
+
+    // rocksdb default: 20
     _db_opts.level0_slowdown_writes_trigger =
         (int)dsn_config_get_value_uint64("replication",
                 "rocksdb_level0_slowdown_writes_trigger",
-                8,
-                "rocksdb options.level0_slowdown_writes_trigger, default 8"
+                20,
+                "rocksdb options.level0_slowdown_writes_trigger, default 20"
                 );
+
+    // rocksdb default: 24
     _db_opts.level0_stop_writes_trigger =
         (int)dsn_config_get_value_uint64("replication",
                 "rocksdb_level0_stop_writes_trigger",
-                12,
-                "rocksdb options.level0_stop_writes_trigger, default 12"
+                24,
+                "rocksdb options.level0_stop_writes_trigger, default 24"
                 );
 
     // disable write ahead logging as replication handles logging instead now
