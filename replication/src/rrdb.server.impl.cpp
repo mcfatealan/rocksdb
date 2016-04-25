@@ -11,21 +11,21 @@
 namespace dsn {
     namespace apps {
         
-        static std::string chkpt_get_dir_name(::dsn::replication::decree d, rocksdb::SequenceNumber seq)
+        static std::string chkpt_get_dir_name(int64_t d, rocksdb::SequenceNumber seq)
         {
             char buffer[256];
             sprintf(buffer, "checkpoint.%" PRId64 ".%" PRIu64 "", d, seq);
             return std::string(buffer);
         }
 
-        static bool chkpt_init_from_dir(const char* name, ::dsn::replication::decree& d, rocksdb::SequenceNumber& seq)
+        static bool chkpt_init_from_dir(const char* name, int64_t& d, rocksdb::SequenceNumber& seq)
         {
             return 2 == sscanf(name, "checkpoint.%" PRId64 ".%" PRIu64 "", &d, &seq)
                 && std::string(name) == chkpt_get_dir_name(d, seq);
         }
 
-        rrdb_service_impl::rrdb_service_impl(::dsn::replication::replica* replica)
-            : rrdb_service(replica), _max_checkpoint_count(3)
+        rrdb_service_impl::rrdb_service_impl()
+            : _max_checkpoint_count(3)
         {
             _is_open = false;
             _last_seq = 0;
@@ -110,7 +110,7 @@ namespace dsn {
             for (auto& d : dirs)
             {
                 checkpoint_info ci;
-                std::string d1 = d.substr(data_dir().length() + 1);
+                std::string d1 = d.substr(strlen(data_dir()) + 1);
                 if (chkpt_init_from_dir(d1.c_str(), ci.d, ci.seq))
                 {
                     _checkpoints.push_back(ci);
@@ -149,11 +149,11 @@ namespace dsn {
                 {
                     if (utils::filesystem::remove_path(old_cpt_dir))
                     {
-                        ddebug("%s: checkpoint %s removed by garbage collection", data_dir().c_str(), old_cpt_dir.c_str());
+                        ddebug("%s: checkpoint %s removed by garbage collection", data_dir(), old_cpt_dir.c_str());
                     }
                     else
                     {
-                        derror("%s: remove checkpoint %s failed by garbage collection", data_dir().c_str(), old_cpt_dir.c_str());
+                        derror("%s: remove checkpoint %s failed by garbage collection", data_dir(), old_cpt_dir.c_str());
                         {
                             // put back if remove failed
                             utils::auto_lock<utils::ex_lock_nr> l(_checkpoints_lock);
@@ -165,7 +165,7 @@ namespace dsn {
                 }
                 else
                 {
-                    dwarn("%s: checkpoint %s does not exist, garbage collection ignored", data_dir().c_str(), old_cpt_dir.c_str());
+                    dwarn("%s: checkpoint %s does not exist, garbage collection ignored", data_dir(), old_cpt_dir.c_str());
                 }
             }
         }
@@ -223,7 +223,7 @@ namespace dsn {
 
         void rrdb_service_impl::on_put(const update_request& update, ::dsn::rpc_replier<int>& reply)
         {
-            dassert(_is_open, "rrdb service %s is not ready", data_dir().c_str());
+            dassert(_is_open, "rrdb service %s is not ready", data_dir());
 
             if (_is_catchup)
             {
@@ -244,7 +244,7 @@ namespace dsn {
 
         void rrdb_service_impl::on_remove(const ::dsn::blob& key, ::dsn::rpc_replier<int>& reply)
         {
-            dassert(_is_open, "rrdb service %s is not ready", data_dir().c_str());
+            dassert(_is_open, "rrdb service %s is not ready", data_dir());
 
             if (_is_catchup)
             {
@@ -264,7 +264,7 @@ namespace dsn {
 
         void rrdb_service_impl::on_merge(const update_request& update, ::dsn::rpc_replier<int>& reply)
         {
-            dassert(_is_open, "rrdb service %s is not ready", data_dir().c_str());
+            dassert(_is_open, "rrdb service %s is not ready", data_dir());
 
             if (_is_catchup)
             {
@@ -285,7 +285,7 @@ namespace dsn {
 
         void rrdb_service_impl::on_get(const ::dsn::blob& key, ::dsn::rpc_replier<read_response>& reply)
         {
-            dassert(_is_open, "rrdb service %s is not ready", data_dir().c_str());
+            dassert(_is_open, "rrdb service %s is not ready", data_dir());
 
             read_response resp;
             rocksdb::Slice skey(key.data(), key.length());
@@ -298,16 +298,19 @@ namespace dsn {
             reply(resp);
         }
 
-        ::dsn::error_code rrdb_service_impl::open(bool create_new)
+        ::dsn::error_code rrdb_service_impl::start(int argc, char** argv)
         {
-            dassert(!_is_open, "rrdb service %s is already opened", data_dir().c_str());
+            dassert(!_is_open, "rrdb service %s is already opened", data_dir());
 
             rocksdb::Options opts = _db_opts;
-            opts.create_if_missing = create_new;
-            opts.error_if_exists = create_new;
+            opts.create_if_missing = true;
+            opts.error_if_exists = false;
 
             rrdb_service_impl::checkpoint_info last_checkpoint;
-            if (create_new)
+            last_checkpoint = parse_checkpoints();
+            gc_checkpoints();
+
+            /*if (create_new)
             {
                 auto& dir = data_dir();
                 if (!utils::filesystem::remove_path(dir))
@@ -325,7 +328,7 @@ namespace dsn {
             {
                 last_checkpoint = parse_checkpoints();
                 gc_checkpoints();
-            }
+            }*/
 
             auto path = utils::filesystem::path_combine(data_dir(), "rdb");
             auto status = rocksdb::DB::Open(opts, path, &_db);
@@ -333,7 +336,7 @@ namespace dsn {
             {
                 // load from checkpoints
                 // set last_durable_decree/last_durable_seq/last_commit_decree to the last checkpoint
-                _last_durable_decree = last_checkpoint.d;
+                set_last_durable_decree(last_checkpoint.d);
                 _last_durable_seq = last_checkpoint.seq;
                 init_last_commit_decree(last_checkpoint.d);
              
@@ -351,7 +354,7 @@ namespace dsn {
 
                 ddebug("open app %s: last_committed/durable_decree = <%" PRId64 ", %" PRId64 ">, "
                     "last_seq = %" PRIu64 ", last_durable_seq = %" PRIu64 ", is_catch_up = %s",
-                    data_dir().c_str(), last_committed_decree(), last_durable_decree(),
+                    data_dir(), last_committed_decree(), last_durable_decree(),
                     _last_seq, _last_durable_seq, _is_catchup ? "true" : "false"
                     );
 
@@ -368,7 +371,7 @@ namespace dsn {
             }
         }
 
-        ::dsn::error_code rrdb_service_impl::close(bool clear_state)
+        ::dsn::error_code rrdb_service_impl::stop(bool clear_state)
         {
             if (!_is_open)
             {
@@ -393,7 +396,8 @@ namespace dsn {
                 _checkpoints.clear();
             }
 
-            reset_states();
+            //reset_states();
+            memset((void*)&_app_info->info.type1, sizeof(_app_info->info.type1), 0);
 
             if (clear_state)
             {
@@ -411,7 +415,7 @@ namespace dsn {
             if (!_is_open || _is_catchup|| _is_checkpointing)
                 return ERR_WRONG_TIMING;
 
-            if (_last_durable_decree == last_committed_decree())
+            if (last_durable_decree() == last_committed_decree())
                 return ERR_NO_NEED_OPERATE;
 
             _is_checkpointing = true;
@@ -421,7 +425,7 @@ namespace dsn {
             if (!status.ok())
             {
                 derror("%s: create Checkpoint object failed, status = %s",
-                    data_dir().c_str(),
+                    data_dir(),
                     status.ToString().c_str()
                     );
                 _is_checkpointing = false;
@@ -438,13 +442,13 @@ namespace dsn {
             if (utils::filesystem::directory_exists(chkpt_dir))
             {
                 dwarn("%s: checkpoint directory %s already exist, remove it first",
-                    data_dir().c_str(),
+                    data_dir(),
                     chkpt_dir.c_str()
                     );
                 if (!utils::filesystem::remove_path(chkpt_dir))
                 {
                     derror("%s: remove old checkpoint directory %s failed",
-                        data_dir().c_str(),
+                        data_dir(),
                         chkpt_dir.c_str()
                         );
                     _is_checkpointing = false;
@@ -458,7 +462,7 @@ namespace dsn {
             if (!status.ok())
             {
                 derror("%s: create checkpoint failed, status = %s",
-                    data_dir().c_str(),
+                    data_dir(),
                     status.ToString().c_str()
                     );
                 utils::filesystem::remove_path(chkpt_dir);
@@ -470,11 +474,11 @@ namespace dsn {
                 utils::auto_lock<utils::ex_lock_nr> l(_checkpoints_lock);
                 _checkpoints.push_back(ci);
                 std::sort(_checkpoints.begin(), _checkpoints.end());
-                _last_durable_decree = _checkpoints.back().d;
+                set_last_durable_decree(_checkpoints.back().d);
             }
 
             ddebug("%s: create checkpoint %s succeed",
-                data_dir().c_str(),
+                data_dir(),
                 chkpt_dir.c_str()
                 );
 
@@ -490,7 +494,7 @@ namespace dsn {
             if (!_is_open || _is_catchup || _is_checkpointing)
                 return ERR_WRONG_TIMING;
 
-            if (_last_durable_decree == last_committed_decree())
+            if (last_durable_decree() == last_committed_decree())
                 return ERR_NO_NEED_OPERATE;
 
             _is_checkpointing = true;
@@ -500,7 +504,7 @@ namespace dsn {
             if (!status.ok())
             {
                 derror("%s: create Checkpoint object failed, status = %s",
-                    data_dir().c_str(),
+                    data_dir(),
                     status.ToString().c_str()
                     );
                 _is_checkpointing = false;
@@ -525,13 +529,13 @@ namespace dsn {
             if (utils::filesystem::directory_exists(tmp_dir))
             {
                 dwarn("%s: tmp directory %s already exist, remove it first",
-                    data_dir().c_str(),
+                    data_dir(),
                     tmp_dir.c_str()
                     );
                 if (!utils::filesystem::remove_path(tmp_dir))
                 {
                     derror("%s: remove old tmp directory %s failed",
-                        data_dir().c_str(),
+                        data_dir(),
                         tmp_dir.c_str()
                         );
                     _is_checkpointing = false;
@@ -545,7 +549,7 @@ namespace dsn {
             if (!status.ok())
             {
                 derror("%s: async create checkpoint failed, status = %s",
-                    data_dir().c_str(),
+                    data_dir(),
                     status.ToString().c_str()
                     );
                 utils::filesystem::remove_path(tmp_dir);
@@ -561,13 +565,13 @@ namespace dsn {
             if (utils::filesystem::directory_exists(chkpt_dir))
             {
                 dwarn("%s: checkpoint directory %s already exist, remove it first",
-                    data_dir().c_str(),
+                    data_dir(),
                     chkpt_dir.c_str()
                     );
                 if (!utils::filesystem::remove_path(chkpt_dir))
                 {
                     derror("%s: remove old checkpoint directory %s failed",
-                        data_dir().c_str(),
+                        data_dir(),
                         chkpt_dir.c_str()
                         );
                     utils::filesystem::remove_path(tmp_dir);
@@ -579,7 +583,7 @@ namespace dsn {
             if (!utils::filesystem::rename_path(tmp_dir, chkpt_dir))
             {
                 derror("%s: rename checkpoint directory from %s to %s failed",
-                    data_dir().c_str(),
+                    data_dir(),
                     tmp_dir.c_str(),
                     chkpt_dir.c_str()
                     );
@@ -592,11 +596,11 @@ namespace dsn {
                 utils::auto_lock<utils::ex_lock_nr> l(_checkpoints_lock);
                 _checkpoints.push_back(ci);
                 std::sort(_checkpoints.begin(), _checkpoints.end());
-                _last_durable_decree = _checkpoints.back().d;
+                set_last_durable_decree(_checkpoints.back().d);
             }
 
             ddebug("%s: async create checkpoint %s succeed",
-                data_dir().c_str(),
+                data_dir(),
                 chkpt_dir.c_str()
                 );
 
@@ -607,11 +611,13 @@ namespace dsn {
         }
         
         ::dsn::error_code rrdb_service_impl::get_checkpoint(
-            ::dsn::replication::decree start, 
-            const blob& learn_req, 
-            /*out*/ ::dsn::replication::learn_state& state)
+            int64_t start,
+            void*   learn_request,
+            int     learn_request_size,
+            /* inout */ app_learn_state& state
+            )
         {
-            dassert(_is_open, "rrdb service %s is not ready", data_dir().c_str());
+            dassert(_is_open, "rrdb service %s is not ready", data_dir());
 
             checkpoint_info ci;
             {
@@ -622,45 +628,45 @@ namespace dsn {
 
             if (ci.d == 0)
             {
-                derror("%s: no checkpoint found", data_dir().c_str());
+                derror("%s: no checkpoint found", data_dir());
                 return ERR_OBJECT_NOT_FOUND;
             }
 
             auto dir = chkpt_get_dir_name(ci.d, ci.seq);
             auto chkpt_dir = utils::filesystem::path_combine(data_dir(), dir);
-            auto succ = utils::filesystem::get_subfiles(chkpt_dir, state.files, true);
+
+            std::vector<std::string> files;
+            auto succ = utils::filesystem::get_subfiles(chkpt_dir, files, true);
             if (!succ)
             {
-                derror("%s: list files in checkpoint dir %s failed", data_dir().c_str(), chkpt_dir.c_str());
+                derror("%s: list files in checkpoint dir %s failed", data_dir(), chkpt_dir.c_str());
                 return ERR_FILE_OPERATION_FAILED;
             }
 
             // attach checkpoint info
             binary_writer writer;
             writer.write_pod(ci);
-            state.meta.push_back(writer.get_buffer());
+            state.meta_state = std::move(writer.get_buffer());
 
             state.from_decree_excluded = 0;
             state.to_decree_included = ci.d;
 
             ddebug("%s: get checkpoint succeed, from_decree_excluded = 0, to_decree_included = %" PRId64,
-                   data_dir().c_str(),
+                   data_dir(),
                    state.to_decree_included);
             return ERR_OK;
         }
 
-        ::dsn::error_code rrdb_service_impl::apply_checkpoint(
-            ::dsn::replication::learn_state& state,
-            ::dsn::replication::chkpt_apply_mode mode)
+        ::dsn::error_code rrdb_service_impl::apply_checkpoint(const dsn_app_learn_state& state, dsn_chkpt_apply_mode mode)
         {
             ::dsn::error_code err;
             checkpoint_info ci;
 
-            dassert(state.meta.size() >= 1, "the learned state does not have checkpint meta info");
-            binary_reader reader(state.meta[0]);
+            dassert(state.meta_state_size > 0, "the learned state does not have checkpint meta info");
+            binary_reader reader(blob((const char*)state.meta_state_ptr, 0, state.meta_state_size));
             reader.read_pod(ci);
 
-            if (mode == dsn::replication::CHKPT_COPY)
+            if (mode == DSN_CHKPT_COPY)
             {
                 dassert(state.to_decree_included > last_durable_decree()
                     && ci.d == state.to_decree_included,
@@ -675,7 +681,7 @@ namespace dsn {
                 {
                     utils::auto_lock<utils::ex_lock_nr> l(_checkpoints_lock);
                     _checkpoints.push_back(ci);
-                    _last_durable_decree = ci.d;
+                    set_last_durable_decree(ci.d);
                     err = ERR_OK;
                 }
                 else
@@ -687,10 +693,10 @@ namespace dsn {
 
             if (_is_open)
             {
-                err = close(true);
+                err = stop(true);
                 if (err != ERR_OK)
                 {
-                    derror("close rocksdb %s failed, err = %s", data_dir().c_str(), err.to_string());
+                    derror("close rocksdb %s failed, err = %s", data_dir(), err.to_string());
                     return err;
                 }
             }
@@ -698,22 +704,22 @@ namespace dsn {
             // clear data dir
             if (!utils::filesystem::remove_path(data_dir()))
             {
-                derror("clear data directory %s failed", data_dir().c_str());
+                derror("clear data directory %s failed", data_dir());
                 return ERR_FILE_OPERATION_FAILED;
             }
 
             // reopen the db with the new checkpoint files
-            if (state.files.size() > 0)
+            if (state.file_state_count > 0)
             {
                 // create data dir
                 if (!utils::filesystem::create_directory(data_dir()))
                 {
-                    derror("create data directory %s failed", data_dir().c_str());
+                    derror("create data directory %s failed", data_dir());
                     return ERR_FILE_OPERATION_FAILED;
                 }
 
                 // move learned files from learn_dir to data_dir/rdb
-                std::string learn_dir = utils::filesystem::remove_file_name(*state.files.rbegin());
+                std::string learn_dir = utils::filesystem::remove_file_name(std::string(state.files[state.file_state_count - 1]));
                 std::string new_dir = utils::filesystem::path_combine(data_dir(), "rdb");
                 if (!utils::filesystem::rename_path(learn_dir, new_dir))
                 {
@@ -721,17 +727,17 @@ namespace dsn {
                     return ERR_FILE_OPERATION_FAILED;
                 }
 
-                err = open(false);
+                err = start(0, nullptr);
             }
             else
             {
-                dwarn("%s: apply empty checkpoint, create new rocksdb", data_dir().c_str());
-                err = open(true);
+                dwarn("%s: apply empty checkpoint, create new rocksdb", data_dir());
+                err = start(0, nullptr);
             }
 
             if (err != ERR_OK)
             {
-                derror("open rocksdb %s failed, err = %s", data_dir().c_str(), err.to_string());
+                derror("open rocksdb %s failed, err = %s", data_dir(), err.to_string());
                 return err;
             }
 
@@ -755,7 +761,7 @@ namespace dsn {
                 err = checkpoint();
                 if (err != ERR_OK)
                 {
-                    derror("%s: checkpoint failed, err = %s", data_dir().c_str(), err.to_string());
+                    derror("%s: checkpoint failed, err = %s", data_dir(), err.to_string());
                     return err;
                 }
                 dassert(last_committed_decree() == last_durable_decree(),
@@ -766,7 +772,7 @@ namespace dsn {
             }
 
             ddebug("%s: apply checkpoint succeed, last_committed_decree = %" PRId64,
-                   data_dir().c_str(),
+                   data_dir(),
                    last_committed_decree());
             return ERR_OK;
         }
