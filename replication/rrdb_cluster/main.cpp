@@ -43,8 +43,6 @@ int main(int argc, const char* argv[])
 
     while ( true )
     {
-        std::cout << std::endl << ">>> ";
-
         int Argc = 0;
         std::string Argv[PARA_NUM];
         scanfCommand(Argc, Argv, PARA_NUM);

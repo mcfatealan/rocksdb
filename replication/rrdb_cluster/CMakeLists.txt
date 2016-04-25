@@ -15,6 +15,7 @@ set(MY_PROJ_INC_PATH "../../include" "../client_lib/include" "../client_lib/src"
 set(MY_PROJ_LIBS 
     dsn.replication.ddlclient
     rrdb.clientlib
+    readline
     )
 
 file(GLOB
