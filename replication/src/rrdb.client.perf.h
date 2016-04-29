@@ -54,10 +54,14 @@ public:
     {
         update_request req;
         // TODO: randomize the value of req
-        // auto rs = random64(0, 10000000) % key_space_size;
-        // std::stringstream ss;
-        // ss << "key." << rs;
-        // req = ss.str();
+        auto rs = random64(0, 10000000) % key_space_size;
+        req.key = dsn::blob((const char*)&rs, 0, sizeof(rs));
+        
+        auto buffer = std::shared_ptr<char>((char*)dsn_transient_malloc(payload_bytes), [](char* ptr){
+                dsn_transient_free(ptr);
+        });
+        req.value = dsn::blob(buffer, payload_bytes);
+
         put(
             req,
             [this, context = prepare_send_one()](error_code err, int&& resp)
@@ -71,11 +75,9 @@ public:
     void send_one_remove(int payload_bytes, int key_space_size)
     {
         ::dsn::blob req;
-        // TODO: randomize the value of req
-        // auto rs = random64(0, 10000000) % key_space_size;
-        // std::stringstream ss;
-        // ss << "key." << rs;
-        // req = ss.str();
+        auto rs = random64(0, 10000000) % key_space_size;
+        req = dsn::blob((const char*)&rs, 0, sizeof(rs));
+
         remove(
             req,
             [this, context = prepare_send_one()](error_code err, int&& resp)
@@ -89,11 +91,14 @@ public:
     void send_one_merge(int payload_bytes, int key_space_size)
     {
         update_request req;
-        // TODO: randomize the value of req
-        // auto rs = random64(0, 10000000) % key_space_size;
-        // std::stringstream ss;
-        // ss << "key." << rs;
-        // req = ss.str();
+        auto rs = random64(0, 10000000) % key_space_size;
+        req.key = dsn::blob((const char*)&rs, 0, sizeof(rs));
+
+        auto buffer = std::shared_ptr<char>((char*)dsn_transient_malloc(payload_bytes), [](char* ptr) {
+            dsn_transient_free(ptr);
+        });
+        req.value = dsn::blob(buffer, payload_bytes);
+
         merge(
             req,
             [this, context = prepare_send_one()](error_code err, int&& resp)
@@ -107,11 +112,8 @@ public:
     void send_one_get(int payload_bytes, int key_space_size)
     {
         ::dsn::blob req;
-        // TODO: randomize the value of req
-        // auto rs = random64(0, 10000000) % key_space_size;
-        // std::stringstream ss;
-        // ss << "key." << rs;
-        // req = ss.str();
+        auto rs = random64(0, 10000000) % key_space_size;
+        req = dsn::blob((const char*)&rs, 0, sizeof(rs));
         get(
             req,
             [this, context = prepare_send_one()](error_code err, read_response&& resp)

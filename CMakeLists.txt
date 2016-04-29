@@ -25,9 +25,9 @@ project(rocksdb)
 
 include(${CMAKE_CURRENT_SOURCE_DIR}/thirdparty.inc)
 
-execute_process(COMMAND $ENV{COMSPEC} /C echo %date:~0,10% OUTPUT_VARIABLE DATE)
-execute_process(COMMAND $ENV{COMSPEC} /C echo %time% OUTPUT_VARIABLE TIME)
-string(REGEX REPLACE "(..)/(..)/(..).*" "\\1/\\2/\\3" DATE ${DATE})
+execute_process(COMMAND powershell -Command "Get-Date -format MM_dd_yyyy" OUTPUT_VARIABLE DATE)
+execute_process(COMMAND powershell -Command "Get-Date -format HH:mm:ss" OUTPUT_VARIABLE TIME)
+string(REGEX REPLACE "(..)_(..)_..(..).*" "\\1/\\2/\\3" DATE ${DATE})
 string(REGEX REPLACE "(..):(..):(..).*" "\\1:\\2:\\3" TIME ${TIME})
 string(CONCAT GIT_DATE_TIME "${DATE} ${TIME}")
 

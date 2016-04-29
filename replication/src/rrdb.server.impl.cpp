@@ -234,6 +234,7 @@ namespace dsn {
             
             rocksdb::Slice skey(update.key.data(), update.key.length());
             rocksdb::Slice svalue(update.value.data(), update.value.length());
+
             _batch.Put(skey, svalue);
             _batch_repliers.push_back(reply);
             if (get_current_batch_state() != BS_BATCH)
@@ -252,8 +253,9 @@ namespace dsn {
                 catchup_one();
                 return;
             }
-            
+
             rocksdb::Slice skey(key.data(), key.length());
+
             _batch.Delete(skey);
             _batch_repliers.push_back(reply);
             if (get_current_batch_state() != BS_BATCH)
@@ -272,9 +274,10 @@ namespace dsn {
                 catchup_one();
                 return;
             }
-            
+
             rocksdb::Slice skey(update.key.data(), update.key.length());
             rocksdb::Slice svalue(update.value.data(), update.value.length());
+
             _batch.Merge(skey, svalue);
             _batch_repliers.push_back(reply);
             if (get_current_batch_state() != BS_BATCH)
@@ -301,6 +304,10 @@ namespace dsn {
         ::dsn::error_code rrdb_service_impl::start(int argc, char** argv)
         {
             dassert(!_is_open, "rrdb service %s is already opened", data_dir());
+
+            _app_info = dsn_get_app_info_ptr(gpid());
+
+            open_service(gpid());
 
             rocksdb::Options opts = _db_opts;
             opts.create_if_missing = true;
@@ -379,6 +386,8 @@ namespace dsn {
                 dassert(!clear_state, "should not be here if do clear");
                 return ERR_OK;
             }
+
+            close_service(gpid());
 
             _is_open = false;
             delete _db;

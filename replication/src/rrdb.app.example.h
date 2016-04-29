@@ -1,31 +1,9 @@
 # pragma once
 # include "rrdb.client.h"
 # include "rrdb.client.perf.h"
-# include "rrdb.server.h"
+# include "rrdb.server.impl.h"
 
 namespace dsn { namespace apps { 
-// server app example
-class rrdb_server_app : 
-    public ::dsn::service_app
-{
-public:
-    rrdb_server_app() {}
-
-    virtual ::dsn::error_code start(int argc, char** argv) override
-    {
-        _rrdb_svc.open_service(gpid());
-        return ::dsn::ERR_OK;
-    }
-
-    virtual ::dsn::error_code stop(bool cleanup = false) override
-    {
-        _rrdb_svc.close_service(gpid());
-        return ::dsn::ERR_OK;
-    }
-
-private:
-    rrdb_service _rrdb_svc;
-};
 
 // client app example
 class rrdb_client_app : 

@@ -129,6 +129,7 @@ namespace dsn {
             rocksdb::DB           *_db;
             rocksdb::WriteBatch   _batch;
             std::vector<rpc_replier<int>> _batch_repliers;
+
             rocksdb::Options      _db_opts;
             rocksdb::WriteOptions _wt_opts;
             rocksdb::ReadOptions  _rd_opts;
