@@ -21,12 +21,13 @@ public:
     // - synchronous  
     std::pair< ::dsn::error_code, int32_t> put_sync(
         const update_request& update,
+		uint64_t key_hash = 0,
         std::chrono::milliseconds timeout = std::chrono::milliseconds(0)
         )
     {
         return dsn::rpc::wait_and_unwrap<int32_t>(
             ::dsn::replication::replication_app_client_base::write(
-                get_key_hash(update),
+				key_hash,
                 RPC_RRDB_RRDB_PUT,
                 update,
                 this,
@@ -42,12 +43,13 @@ public:
     ::dsn::task_ptr put(
         const update_request& update,
         TCallback&& callback,
+		uint64_t key_hash = 0,
         std::chrono::milliseconds timeout = std::chrono::milliseconds(0),
         int reply_hash = 0
         )
     {
         return ::dsn::replication::replication_app_client_base::write(
-            get_key_hash(update),
+			key_hash,
             RPC_RRDB_RRDB_PUT,
             update,
             this,
@@ -61,12 +63,13 @@ public:
     // - synchronous  
     std::pair< ::dsn::error_code, int32_t> remove_sync(
         const ::dsn::blob& key,
+		uint64_t key_hash = 0,
         std::chrono::milliseconds timeout = std::chrono::milliseconds(0)
         )
     {
         return dsn::rpc::wait_and_unwrap<int32_t>(
             ::dsn::replication::replication_app_client_base::write(
-                get_key_hash(key),
+				key_hash,
                 RPC_RRDB_RRDB_REMOVE,
                 key,
                 this,
@@ -82,12 +85,13 @@ public:
     ::dsn::task_ptr remove(
         const ::dsn::blob& key,
         TCallback&& callback,
+		uint64_t key_hash = 0,
         std::chrono::milliseconds timeout = std::chrono::milliseconds(0),
         int reply_hash = 0
         )
     {
         return ::dsn::replication::replication_app_client_base::write(
-            get_key_hash(key),
+			key_hash,
             RPC_RRDB_RRDB_REMOVE,
             key,
             this,
@@ -101,12 +105,13 @@ public:
     // - synchronous  
     std::pair< ::dsn::error_code, int32_t> merge_sync(
         const update_request& update,
+		uint64_t key_hash = 0,
         std::chrono::milliseconds timeout = std::chrono::milliseconds(0)
         )
     {
         return dsn::rpc::wait_and_unwrap<int32_t>(
             ::dsn::replication::replication_app_client_base::write(
-                get_key_hash(update),
+				key_hash,
                 RPC_RRDB_RRDB_MERGE,
                 update,
                 this,
@@ -122,12 +127,13 @@ public:
     ::dsn::task_ptr merge(
         const update_request& update,
         TCallback&& callback,
+		uint64_t key_hash = 0,
         std::chrono::milliseconds timeout = std::chrono::milliseconds(0),
         int reply_hash = 0
         )
     {
         return ::dsn::replication::replication_app_client_base::write(
-            get_key_hash(update),
+			key_hash,
             RPC_RRDB_RRDB_MERGE,
             update,
             this,
@@ -141,13 +147,14 @@ public:
     // - synchronous  
     std::pair< ::dsn::error_code, read_response> get_sync(
         const ::dsn::blob& key,
+		uint64_t key_hash = 0,
         std::chrono::milliseconds timeout = std::chrono::milliseconds(0),
         ::dsn::replication::read_semantic semantic = ::dsn::replication::read_semantic::ReadLastUpdate
         )
     {
         return dsn::rpc::wait_and_unwrap<read_response>(
             ::dsn::replication::replication_app_client_base::read(
-                get_key_hash(key),
+				key_hash,
                 RPC_RRDB_RRDB_GET,
                 key,
                 this,
@@ -164,13 +171,14 @@ public:
     ::dsn::task_ptr get(
         const ::dsn::blob& key,
         TCallback&& callback,
+		uint64_t key_hash = 0,
         std::chrono::milliseconds timeout = std::chrono::milliseconds(0),
         int reply_hash = 0,
         ::dsn::replication::read_semantic semantic = ::dsn::replication::read_semantic::ReadLastUpdate
         )
     {
         return ::dsn::replication::replication_app_client_base::read(
-            get_key_hash(key),
+			key_hash,
             RPC_RRDB_RRDB_GET,
             key,
             this,

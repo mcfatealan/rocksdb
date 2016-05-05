@@ -3,33 +3,12 @@
 
 namespace dsn { namespace apps { 
 
-
-	inline uint64_t rrdb_key_hash(const ::dsn::blob& key)
-	{
-		dassert(key.length() > 4, "key length must be greater than 4");
-		// hash_key_length is in big endian
-		int length = be32toh(*(int32_t*)(key.data()));
-		dassert(key.length() >= 4 + length, "key length must be greater than 4 + hash_key length");
-		dsn::blob hash_key(key.buffer_ptr(), 4, length);
-		return dsn_crc64_compute(hash_key.data(), hash_key.length(), 0);
-	}
- 
 class rrdb_perf_test_client 
     : public rrdb_client, 
       public ::dsn::service::perf_client_helper 
 {
 public:
     using rrdb_client::rrdb_client;
-
-	virtual uint64_t get_key_hash(const ::dsn::blob& key)
-	{
-		return rrdb_key_hash(key);
-	}
-
-	virtual uint64_t get_key_hash(const update_request& key)
-	{
-		return rrdb_key_hash(key.key);
-	}
 
     void start_test()
     {
@@ -83,6 +62,7 @@ public:
             {
                 end_send_one(context, err);
             },
+			0,
             _timeout
             );
     }
@@ -103,6 +83,7 @@ public:
             {
                 end_send_one(context, err);
             },
+			0,
             _timeout
             );
     }
@@ -123,6 +104,7 @@ public:
             {
                 end_send_one(context, err);
             },
+			0,
             _timeout
             );
     }
@@ -143,6 +125,7 @@ public:
             {
                 end_send_one(context, err);
             },
+			0,
             _timeout
             );
     }

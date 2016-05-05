@@ -11,8 +11,8 @@ public:
     virtual void send_one_put(int payload_bytes, int key_space_size) override
     {
         update_request req;
-
-        auto rs = random64(0, 10000000) % key_space_size;
+		auto rand_num = random64(0, 10000000);
+        auto rs = rand_num % key_space_size;
         binary_writer writer(payload_bytes < 128 ? 128 : payload_bytes);
         writer.write("key.", 4);
         writer.write(rs);
@@ -32,6 +32,7 @@ public:
             {
                 end_send_one(context, err);
             },
+			rand_num,
             _timeout
             );
     }
@@ -40,7 +41,8 @@ public:
     {
         ::dsn::blob req;
 
-        auto rs = random64(0, 10000000) % key_space_size;
+		auto rand_num = random64(0, 10000000);
+		auto rs = rand_num % key_space_size;
         binary_writer writer;
         writer.write("key.", 4);
         writer.write(rs);
@@ -52,6 +54,7 @@ public:
             {
                 end_send_one(context, err);
             },
+			rand_num,
             _timeout
             );
     }
@@ -60,7 +63,8 @@ public:
     {
         update_request req;
 
-        auto rs = random64(0, 10000000) % key_space_size;
+		auto rand_num = random64(0, 10000000);
+		auto rs = rand_num % key_space_size;
         binary_writer writer(payload_bytes < 128 ? 128 : payload_bytes);
         writer.write("key.", 4);
         writer.write(rs);
@@ -80,6 +84,7 @@ public:
             {
                 end_send_one(context, err);
             },
+			rand_num,
             _timeout
             );
     }
@@ -88,7 +93,8 @@ public:
     {
         ::dsn::blob req;
 
-        auto rs = random64(0, 10000000) % key_space_size;
+		auto rand_num = random64(0, 10000000);
+		auto rs = rand_num % key_space_size;
         binary_writer writer;
         writer.write("key.", 4);
         writer.write(rs);
@@ -100,6 +106,7 @@ public:
             {
                 end_send_one(context, err);
             },
+			rand_num,
             _timeout
             );
     }
